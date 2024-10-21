@@ -1,0 +1,18 @@
+[Unit]
+Description=uWSGI Emperor Service
+After=network.target
+
+[Service]
+ExecStart=/var/www/resume/venv/bin/uwsgi --ini /var/www/resume/uwsgi.ini
+WorkingDirectory=/var/www/resume
+Restart=always
+RestartSec=5
+KillSignal=SIGQUIT
+Type=notify
+NotifyAccess=all
+User=www-data
+Group=www-data
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

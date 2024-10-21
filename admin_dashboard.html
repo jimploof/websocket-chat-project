@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr" data-nav-layout="vertical" data-theme-mode="light" data-header-styles="light" data-menu-styles="light" data-toggled="close">
+
+<head>
+    <!-- META DATA -->
+    <meta charset="UTF-8">
+    <meta name='viewport' content='width=device-width, initial-scale=1.0, user-scalable=no'>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="Description" content="Admin Dashboard">
+    <meta name="Author" content="">
+    <meta name="keywords" content="">
+
+    <!-- TITLE -->
+    <title>{% block title %}Admin Dashboard{% endblock %}</title>
+
+    <!-- FAVICON -->
+    <link rel="icon" href="{{ url_for('static', filename='assets/images/brand-logos/favicon.ico') }}" type="image/x-icon">
+
+    <!-- BOOTSTRAP CSS -->
+    <link id="style" href="{{ url_for('static', filename='assets/libs/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+
+    <!-- ICONS CSS -->
+    <link href="{{ url_for('static', filename='assets/css/icons.css') }}" rel="stylesheet">
+
+    <!-- STYLES CSS -->
+    <link href="{{ url_for('static', filename='assets/css/styles.css') }}" rel="stylesheet">
+
+    <!-- SOCKET.IO -->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 bg-light sidebar p-3">
+                <h3 class="text-center">Admin Dashboard</h3>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Manage Queues</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Logout</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 p-4">
+                <h2 class="mb-4">Active Chat Queues</h2>
+
+                {% if error %}
+                    <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Queue Name</th>
+                            <th>Message Count</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if queues %}
+                        {% for queue in queues %}
+                        <tr>
+                            <td>{{ queue.name }}</td>
+                            <td>{{ queue.message_count }}</td>
+                            <td>
+                                <!-- Message sending form -->
+                                <form class="admin-response-form" data-queue="{{ queue.name }}">
+                                    <input type="hidden" name="queue" value="{{ queue.name }}">
+                                    <div class="input-group">
+                                        <input type="text" name="message" class="form-control" placeholder="Type your message" required>
+                                        <button type="submit" class="btn btn-sm btn-primary">Send</button>
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="3" class="text-center">No active queues</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+
+                <!-- Div for displaying messages from admin queue -->
+                <div id="adminMessages" class="mt-5">
+                    <h3>Admin Queue Messages</h3>
+                    <ul id="messageList" class="list-group">
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOOTSTRAP JS -->
+    <script src="{{ url_for('static', filename='assets/libs/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const socket = io.connect('wss://jamesploof.com', {
+            path: '/socket.io',
+            transports: ['websocket'],
+            upgrade: false,
+            reconnectionAttempts: 5,
+            timeout: 10000
+        });
+
+        // Handle WebSocket connection
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('connect_error', function(error) {
+            console.error('Connection Error:', error);
+        });
+
+        // Listen for incoming messages from the backend
+        socket.on('admin_message', function(data) {
+            console.log('Received admin message:', data);
+            var messageList = document.getElementById('messageList');
+            var newMessage = document.createElement('li');
+            newMessage.className = 'list-group-item';
+            newMessage.innerText = "SessionID: " + data.sessionID + " - " + data.message;
+            messageList.appendChild(newMessage);
+        });
+
+
+socket.on('connect_error', function(error) {
+    console.error('Connection Error:');
+
+    // Log the full error object
+    console.dir(error);
+
+    // Log specific properties if they exist
+    if (error.message) {
+        console.error('Error message:', error.message);
+    }
+
+    if (error.code) {
+        console.error('Error code:', error.code);
+    }
+
+    if (error.type) {
+        console.error('Error type:', error.type);
+    }
+
+    if (error.stack) {
+        console.error('Error stack:', error.stack);
+    }
+
+    // Log potential network-related properties
+    if (error.target) {
+        console.error('Error target:', error.target);
+    }
+
+    if (error.source) {
+        console.error('Error source:', error.source);
+    }
+
+    console.error('Error details:', JSON.stringify(error, null, 2)); // Log as formatted JSON
+});
+
+
+        socket.on('disconnect', function(reason) {
+            console.log('Disconnected from server. Reason:', reason);
+        });
+
+        socket.on('reconnect_attempt', function(attemptNumber) {
+            console.log('Attempting to reconnect:', attemptNumber);
+        });
+
+        // Handle message form submission
+        document.querySelectorAll('.admin-response-form').forEach(function(form) {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                var queueName = form.dataset.queue;
+                var messageInput = form.querySelector('input[name="message"]');
+                var message = messageInput.value;
+
+                // Send the admin's response message to Flask (Flask will forward to Go backend)
+                fetch(`/admin/dashboard`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        sessionID: queueName,  // Assuming queue name = sessionID
+                        message: message
+                    })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Message sent successfully:', message);
+                        messageInput.value = ''; // Clear input field after successful submission
+                    } else {
+                        console.error('Failed to send message:', response.status);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error sending message:', error);
+                });
+            });
+        });
+    });
+</script>
+
+
+</body>
+</html>
